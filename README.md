@@ -6,10 +6,14 @@ It's quite simple, [anna-bot](https://github.com/drummersbrother/anna-bot "A dis
 It sends data with an accompanying token, for some simple auth.
 
 ## Ok, how2run?
-You will need:
+You will need:  
+#####Pypi:
 ```
 falcon
-falcon-json-io
+falconjsonio
+```
+#####Idk:
+```
 python3.5
 A computer
 Skillz
