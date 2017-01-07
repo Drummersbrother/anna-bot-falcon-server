@@ -1,5 +1,7 @@
 {
   "last_online_list": {
-    "post_auth_token": "AUTH TOKEN HERE"
+    "post_auth_token": "AUTH TOKEN HERE",
+    "static_html_filename": "dummy-last_seen_list-static.html",
+    "list_entry_html_filename": "dummy-last_seen_list-list_entry.html"
   }
 }
