@@ -2,6 +2,7 @@
   "last_online_list": {
     "post_auth_token": "AUTH TOKEN HERE",
     "static_html_filename": "dummy-last_seen_list-static.html",
-    "list_entry_html_filename": "dummy-last_seen_list-list_entry.html"
+    "list_entry_html_filename": "dummy-last_seen_list-list_entry.html",
+    "stylesheet_filename_servename_mapping": {"external_name": "filename_in_folder"}
   }
 }
