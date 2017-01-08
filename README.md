@@ -10,7 +10,7 @@ You will need:
 #####Pypi:
 ```
 falcon
-falconjsonio
+jsonschema
 ```
 #####Idk:
 ```
@@ -18,7 +18,7 @@ python3.5
 A computer
 Skillz
 ```
-Just run the app, and configure it with [anna's](https://github.com/drummersbrother/anna-bot "A discord bot called anna") `config.json`, and the app's `config.json`.
+Just run the app (with 1 instance only since data is kept in ram, not files), and configure it with [anna's](https://github.com/drummersbrother/anna-bot "A discord bot called anna") `config.json`, and the app's `config.json`.
 
 ## Who?
 Python code: [drummersbrother](https://github.com/drummersbrother "LOOK MOM, IT'S ME!").  

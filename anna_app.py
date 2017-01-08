@@ -3,42 +3,9 @@ import os.path
 from html import escape as htmlescape
 
 import falcon
-from falconjsonio.schema import request_schema
+from jsonschema import validate, ValidationError
 
 """The main file for the webapp, run this with your favourite WSGI server."""
-
-# The json schema we accept from anna-bot about last online times
-anna_bot_json_schema = {
-    "type": "object",
-    "properties": {
-        "servers": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "server_id": {
-                        "type": "string",
-                        "pattern": "^[1-9][0-9]+$"},
-                    "users": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "username": {"type": "string"},
-                                "icon_url": {"type": "string"},
-                                "last_seen_time": {"type": "string"}
-                            },
-                            "required": ["username", "icon_url", "last_seen_time"]
-                        }
-                    },
-                    "required": ["server_id", "users"]
-                }
-            }
-        },
-        "auth_token": {"type": "string"}
-    },
-    "required": ["servers", "auth_token"]
-}
 
 # The mapping of servenames to filepaths of static resources, will automatically use content-type headers for .html and .css files
 static_mappings = {}
@@ -52,6 +19,40 @@ class LastOnlineList(object):
 
         # The dict of servers and users, format {"server_id": [{"username": , "icon_url": , "last_seen_time": }, ...], ...}
         self.server_user_list = {}
+
+        # The json schema we validate out post data against
+        self.post_json_schema = {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "required": ["servers", "auth_token"],
+            "properties": {
+                "servers": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["server_id", "users"],
+                        "properties": {
+                            "server_id": {
+                                "type": "string",
+                                "pattern": "^[1-9][0-9]+$"},
+                            "users": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "required": ["username", "icon_url", "last_seen_time"],
+                                    "properties": {
+                                        "username": {"type": "string"},
+                                        "icon_url": {"type": "string"},
+                                        "last_seen_time": {"type": "string"}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "auth_token": {"type": "string"}
+            }
+        }
+
         # The config for this resource
         with open("config.json", mode="r", encoding="utf-8") as config_file:
             self.config = json.load(config_file)
@@ -74,12 +75,35 @@ class LastOnlineList(object):
     def log_info(*objects):
         print("LastOnlineList: " + ", ".join([repr(x) for x in objects]))
 
-    @request_schema(anna_bot_json_schema)
-    def on_post(self, req, resp):
+    def on_post(self, req: falcon.Request, resp):
         """Handles getting data from anna-bot."""
 
-        # The json we got from anna-bot, this will be valid, as we use falconjsonio to validate and send error messages if it's not valid
-        new_user_data = req.context["doc"]
+        # We check that we got a valid json input
+        try:
+            data = req.bounded_stream.read().decode()
+            # Double loads because the data will be double encoded (once in the request, once after the stream.read().decode())
+            new_user_data = json.loads(json.loads(data))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            # We didn't get valid json, so we return bad request
+            resp.body = "Invalid json."
+            resp.status = falcon.HTTP_BAD_REQUEST
+
+            # We log
+            self.log_info("Got invalid json in update attempt")
+            return
+
+        # We validate the json with our schema
+        try:
+            validate(new_user_data, self.post_json_schema)
+        except ValidationError:
+            # The json was valid json, but not valid against the schema
+            resp.body = "Invalid json format."
+            resp.status = falcon.HTTP_BAD_REQUEST
+
+            # We log
+            self.log_info("Got invalid data against schema in update attempt")
+            return
+
 
         # We check the auth token against the config
         if not self.config["last_online_list"]["post_auth_token"] == new_user_data["auth_token"]:
@@ -92,11 +116,11 @@ class LastOnlineList(object):
             return
 
         # We update our server and user list
-        # We do this by just using dict.update as it overwrites existing keys with the new value, and is also performant and simple
-        self.server_user_list.update({(server["server_id"]): (server["users"]) for server in new_user_data["servers"]})
+        self.server_user_list = {(server["server_id"]): (server["users"]) for server in new_user_data["servers"]}
 
         # We return a successful code
         resp.status = falcon.status_codes.HTTP_OK
+        resp.content_type = "text/plain"
         resp.body = "Successfully updated user and last-seen list."
 
         # We log
