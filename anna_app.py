@@ -17,7 +17,13 @@ class LastOnlineList(object):
     def __init__(self):
         """We have some internal state, such as the last given dict of servers and users."""
 
-        # The dict of servers and users, format {"server_id": [{"username": , "icon_url": , "last_seen_time": }, ...], ...}
+        # The dict of servers and users, format
+        # {"server_id":
+        #   [{"username": ,
+        #    "icon_url": ,
+        #    "last_seen_time": }
+        #   , ...],
+        # ...}
         self.server_user_list = {}
 
         # The json schema we validate out post data against
@@ -82,12 +88,11 @@ class LastOnlineList(object):
         try:
             data = req.bounded_stream.read().decode()
             # Double loads because the data will be double encoded (once in the request, once after the stream.read().decode())
-            new_user_data = json.loads(json.loads(data))
+            new_user_data = json.loads(data)
         except (json.JSONDecodeError, UnicodeDecodeError):
             # We didn't get valid json, so we return bad request
             resp.body = "Invalid json."
             resp.status = falcon.HTTP_BAD_REQUEST
-
             # We log
             self.log_info("Got invalid json in update attempt")
             return
@@ -95,7 +100,7 @@ class LastOnlineList(object):
         # We validate the json with our schema
         try:
             validate(new_user_data, self.post_json_schema)
-        except ValidationError:
+        except ValidationError as e:
             # The json was valid json, but not valid against the schema
             resp.body = "Invalid json format."
             resp.status = falcon.HTTP_BAD_REQUEST
@@ -135,7 +140,7 @@ class LastOnlineList(object):
         # If the parameter didn't exist, it's None
         if requested_server_id is None:
             # We give back a 404
-            resp.body = "That server hasn't enabled this feature."
+            resp.body = "That server hasn't enabled this feature. (No server ID)"
             resp.status = falcon.status_codes.HTTP_NOT_FOUND
 
             # We log
@@ -145,7 +150,7 @@ class LastOnlineList(object):
         # We check that the serverid parameter wasn't given multiple times, and then passed to us as a list
         if isinstance(requested_server_id, list):
             # We give back a 404
-            resp.body = "That server hasn't enabled this feature."
+            resp.body = "That server hasn't enabled this feature. (Invalid server ID)"
             resp.status = falcon.status_codes.HTTP_NOT_FOUND
 
             # We log
@@ -155,7 +160,7 @@ class LastOnlineList(object):
         # We check that the specified server id is a key in the server_user_list
         if not requested_server_id in self.server_user_list:
             # We give back a 404
-            resp.body = "That server hasn't enabled this feature."
+            resp.body = "That server hasn't enabled this feature. (No data)"
             resp.status = falcon.status_codes.HTTP_NOT_FOUND
 
             # We log
@@ -227,3 +232,6 @@ for serve_name, filepath in static_mappings.items():
 
 # We add the routes
 app.add_route("/lastseen", last_seen_resource)
+
+# You can run this app with
+# uwsgi --http :PORT --wsgi-file anna_app.py --callable app --master --processes=4 --threads=2
